@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lotería de Danzas Mexicanas</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      background: linear-gradient(120deg, #fef6e4, #f3d2c1);
+      padding: 20px;
+    }
+    h1 {
+      color: #a4161a;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .boton {
+      margin: 10px;
+      padding: 12px 25px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background-color: #ff924c;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .boton:hover {
+      background-color: #e36c26;
+    }
+    .sorteo {
+      margin-top: 30px;
+      font-size: 24px;
+      color: #003049;
+      font-weight: bold;
+      padding: 10px;
+      background-color: #e9ecef;
+      display: inline-block;
+      border-radius: 8px;
+    }
+    .tabla {
+      border: 3px solid #003049;
+      border-radius: 10px;
+      padding: 10px;
+      background: #ffffff;
+      box-shadow: 2px 4px 10px rgba(0,0,0,0.1);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      max-width: 400px;
+      margin: 0 auto;
+      margin-top: 30px;
+    }
+    .tabla div {
+      padding: 6px;
+      background: #e0aaff;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #3b0a75;
+      box-shadow: 1px 1px 4px rgba(0,0,0,0.1);
+    }
+    #historial {
+      margin-top: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .historial-item {
+      padding: 8px 12px;
+      background: #ced4da;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #212529;
+      box-shadow: 1px 2px 6px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Lotería de Danzas Mexicanas</h1>
+  <div id="seleccion"></div>
+  <div style="display:none" id="juego">
+    <div class="sorteo" id="cartaActual">Presiona el botón para comenzar</div>
+    <div id="botones"></div>
+    <h2>Historial de cartas</h2>
+    <div id="historial"></div>
+    <div class="tabla" id="tablaJugador"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "TU_API_KEY",
+      authDomain: "TU_DOMINIO.firebaseapp.com",
+      databaseURL: "https://TU_DB.firebaseio.com",
+      projectId: "TU_PROJECT_ID",
+      storageBucket: "TU_BUCKET.appspot.com",
+      messagingSenderId: "TU_MESSAGING_ID",
+      appId: "TU_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const cartas = [
+      "Jarabe Tapatío", "Danza del Venado", "La Bamba", "Son Jarocho",
+      "Danza de los Viejitos", "Flor de Piña", "Polka Norteña", "Huapango",
+      "Calabaceado", "Zapateado", "Danza Azteca", "Danza de los Parachicos",
+      "Danza de los Quetzales", "Danza de los Voladores", "Danza de las Listones",
+      "Danza del Toro", "Danza del Tecuan", "Danza del Fandango"
+    ];
+
+    const seleccionDiv = document.getElementById("seleccion");
+    const juegoDiv = document.getElementById("juego");
+    const cartaActual = document.getElementById("cartaActual");
+    const historialDiv = document.getElementById("historial");
+    const tablaJugador = document.getElementById("tablaJugador");
+    const botonesDiv = document.getElementById("botones");
+
+    let jugadorId = null;
+
+    function mostrarSeleccion() {
+      let html = '<p>Selecciona tu rol:</p>';
+      html += '<button class="boton" onclick="iniciarJuego(0)">Soy el Maestro</button>';
+      html += '<br><br><p>O elige tu número de jugador:</p>';
+      for (let i = 1; i <= 6; i++) {
+        html += `<button class="boton" onclick="iniciarJuego(${i})">Jugador ${i}</button> `;
+      }
+      seleccionDiv.innerHTML = html;
+    }
+
+    function iniciarJuego(id) {
+      jugadorId = id;
+      seleccionDiv.style.display = "none";
+      juegoDiv.style.display = "block";
+      generarTablaPersonal(jugadorId);
+
+      if (jugadorId === 0) {
+        const btn = document.createElement("button");
+        btn.className = "boton";
+        btn.innerText = "Siguiente carta";
+        btn.onclick = async () => {
+          const snap = await db.ref("historial").once("value");
+          let historial = snap.val() || [];
+          let restantes = cartas.filter(c => !historial.includes(c));
+          if (restantes.length === 0) return;
+          let nueva = restantes[Math.floor(Math.random() * restantes.length)];
+          historial.push(nueva);
+          db.ref("historial").set(historial);
+        };
+        botonesDiv.appendChild(btn);
+
+        const btnReset = document.createElement("button");
+        btnReset.className = "boton";
+        btnReset.innerText = "Reiniciar";
+        btnReset.onclick = () => db.ref("historial").remove();
+        botonesDiv.appendChild(btnReset);
+      }
+
+      db.ref("historial").on("value", snap => {
+        const historial = snap.val() || [];
+        actualizarVista(historial);
+        cartaActual.innerText = historial[historial.length - 1] || "Presiona el botón para comenzar";
+      });
+    }
+
+    function generarTablaPersonal(seed) {
+      let rng = mulberry32(seed);
+      let seleccionadas = cartas.slice().sort(() => rng() - 0.5).slice(0, 16);
+      seleccionadas.forEach(nombre => {
+        let carta = document.createElement("div");
+        carta.innerText = nombre;
+        tablaJugador.appendChild(carta);
+      });
+    }
+
+    function mostrarCarta(carta) {
+      cartaActual.innerText = carta;
+      let item = document.createElement("div");
+      item.className = "historial-item";
+      item.innerText = carta;
+      historialDiv.appendChild(item);
+    }
+
+    function actualizarVista(historial) {
+      historialDiv.innerHTML = "";
+      historial.forEach(c => mostrarCarta(c));
+    }
+
+    function mulberry32(a) {
+      return function() {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      }
+    }
+
+    mostrarSeleccion();
+  </script>
+</body>
+</html>
